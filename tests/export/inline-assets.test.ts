@@ -994,10 +994,17 @@ describe('malformed authored CSS tolerance', () => {
         '.bad { content: "oops\n;}\n.ok { background: url(https://x/ok.png) }',
       ),
     ).toEqual([{ kind: 'css-url', url: 'https://x/ok.png' }]);
-    // Same for a quoted url( whose string is unterminated.
+    // Same for a quoted url( whose string is unterminated: the url function
+    // consumes everything up to the first ')', so .ok inside it is gone too.
     expect(
       collectCssAssetReferencesByRegex(
         '.bad { src: url("oops\n;}\n.ok { background: url(https://x/ok.png) }',
+      ),
+    ).toEqual([]);
+    // With the ')' close by, scanning recovers and the later url is collected.
+    expect(
+      collectCssAssetReferencesByRegex(
+        '.bad { src: url("oops\n) }\n.ok { background: url(https://x/ok.png) }',
       ),
     ).toEqual([{ kind: 'css-url', url: 'https://x/ok.png' }]);
   });
@@ -1029,6 +1036,27 @@ ${tail}`),
     expect(collectCssAssetReferencesByRegex('.bad { content: "oops')).toEqual([]);
   });
 
+  it('keeps strings truncated at EOF, like browsers (CSS Syntax 4.3.5)', async () => {
+    const { collectCssAssetReferencesByRegex } = await import('@/lib/export/css-asset-parser');
+    // EOF yields a valid string token: the dependency stays reportable.
+    expect(collectCssAssetReferencesByRegex('.a { background: url("https://x/a.png')).toEqual([
+      { kind: 'css-url', url: 'https://x/a.png' },
+    ]);
+    expect(collectCssAssetReferencesByRegex('@import "https://x/a.css')).toEqual([
+      { kind: 'css-import', url: 'https://x/a.css' },
+    ]);
+    // A backslash at EOF is consumed: url("a\ at EOF is the string "a".
+    expect(collectCssAssetReferencesByRegex('.a { background: url("a\\')).toEqual([
+      { kind: 'css-url', url: 'a' },
+    ]);
+    // The strict-path collectors agree on EOF-truncated quoted urls.
+    const { cssUrlReferences } = await import('@/lib/export/css-asset-parser');
+    expect(cssUrlReferences('url("https://x/a.png')).toEqual([
+      { raw: 'https://x/a.png', start: 0, end: 21 },
+    ]);
+    expect(cssUrlReferences('url("a\\')).toEqual([{ raw: 'a', start: 0, end: 8 }]);
+  });
+
   it('continues a quoted url() string across escaped newlines', async () => {
     const { collectCssAssetReferencesByRegex } = await import('@/lib/export/css-asset-parser');
     // Escaped LF inside a double-quoted url(): CSS drops the escape, so the
@@ -1055,6 +1083,61 @@ ${tail}`),
     expect(collectCssAssetReferencesByRegex('.bad { src: url("oops\f) }\n' + tail)).toEqual([
       { kind: 'css-url', url: 'https://x/ok.png' },
     ]);
+  });
+
+  it('strict and fallback paths agree on newlines in url tokens', async () => {
+    const { cssUrlReferences, collectCssAssetReferencesByRegex } =
+      await import('@/lib/export/css-asset-parser');
+    // Quoted with escaped newline: escape dropped, same value both paths.
+    const cssQuoted = 'url("https://x/a\\\nb.png")';
+    expect(cssUrlReferences(cssQuoted)).toEqual([{ raw: 'https://x/ab.png', start: 0, end: 25 }]);
+    expect(collectCssAssetReferencesByRegex(`.a { src: ${cssQuoted} }`)).toEqual([
+      { kind: 'css-url', url: 'https://x/ab.png' },
+    ]);
+    // Multiple escaped newlines in one quoted url: all escapes dropped.
+    expect(cssUrlReferences('url("https://x/a\\\nb\\\nc.png")')).toEqual([
+      { raw: 'https://x/abc.png', start: 0, end: 28 },
+    ]);
+    // Unquoted with backslash-newline: bad-url token, no dependency either path.
+    const cssUnquoted = 'url(https://x/a\\\nb.png)';
+    expect(cssUrlReferences(cssUnquoted)).toEqual([]);
+    expect(collectCssAssetReferencesByRegex(`.a { src: ${cssUnquoted} }`)).toEqual([]);
+    // Quoted string containing a raw newline: bad-string, dropped both paths.
+    const cssRawNewline = 'url("https://x/a\nb.png")';
+    expect(cssUrlReferences(cssRawNewline)).toEqual([]);
+    expect(collectCssAssetReferencesByRegex(`.a { src: ${cssRawNewline} }`)).toEqual([]);
+    // Non-whitespace after the closing quote is a bad-url token: no
+    // dependency on either path.
+    expect(cssUrlReferences('url("https://x/a.png" foo)')).toEqual([]);
+    expect(collectCssAssetReferencesByRegex('.a { src: url("https://x/a.png" foo) }')).toEqual([]);
+    // Comments before the quoted payload are fine in the fallback scanner.
+    // (The strict path's value-parser lumps `/*c*/ "..."` into one word node;
+    // a pre-existing limitation of that parser, out of scope here.)
+    expect(collectCssAssetReferencesByRegex('.a { src: url(/*c*/ "https://x/a.png") }')).toEqual([
+      { kind: 'css-url', url: 'https://x/a.png' },
+    ]);
+    // An escaped ')' inside an unquoted url is part of the URL.
+    expect(collectCssAssetReferencesByRegex('.a { src: url(https://x/a\\)b.png) }')).toEqual([
+      { kind: 'css-url', url: 'https://x/a' + String.fromCharCode(92) + ')b.png' },
+    ]);
+    // Comments between the closing quote and ')' are fine, not a bad url.
+    expect(cssUrlReferences('url("https://x/a.png" /*c*/)')).toEqual([
+      { raw: 'https://x/a.png', start: 0, end: 28 },
+    ]);
+    expect(collectCssAssetReferencesByRegex('.a { src: url("https://x/a.png" /*c*/) }')).toEqual([
+      { kind: 'css-url', url: 'https://x/a.png' },
+    ]);
+    // A bad url consumes through its ')': a nested url inside it is not a
+    // dependency on either path.
+    expect(cssUrlReferences('url("x" url(https://x/nested.png))')).toEqual([]);
+    expect(
+      collectCssAssetReferencesByRegex('.a { src: url("x" url(https://x/nested.png)) }'),
+    ).toEqual([]);
+    // An escaped backslash before the newline leaves it unescaped: still a
+    // bad-string token, dropped on both paths.
+    const cssEscapedBackslash = 'url("https://x/a\\\\\nb.png")';
+    expect(cssUrlReferences(cssEscapedBackslash)).toEqual([]);
+    expect(collectCssAssetReferencesByRegex(`.a { src: ${cssEscapedBackslash} }`)).toEqual([]);
   });
 
   it('surfaces absolute and relative url() refs of unparseable CSS as failures', async () => {
