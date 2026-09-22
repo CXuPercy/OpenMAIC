@@ -193,9 +193,7 @@ export function GenerationToolbar({
                     !provider.requiresApiKey || hasCredentials || !!cfg?.isServerConfigured;
                   return (
                     <SelectItem key={provider.id} value={provider.id} disabled={!available}>
-                      <div
-                        className={cn('flex items-center gap-1.5', !available && 'opacity-50')}
-                      >
+                      <div className={cn('flex items-center gap-1.5', !available && 'opacity-50')}>
                         {provider.icon && (
                           <img src={provider.icon} alt={provider.name} className="w-3.5 h-3.5" />
                         )}
@@ -292,9 +290,7 @@ export function GenerationToolbar({
                             disabled={materialsLocked}
                             className={cn(
                               'size-6 rounded-full inline-flex items-center justify-center text-muted-foreground transition-colors',
-                              materialsLocked
-                                ? 'cursor-not-allowed opacity-40'
-                                : 'hover:bg-muted',
+                              materialsLocked ? 'cursor-not-allowed opacity-40' : 'hover:bg-muted',
                             )}
                             aria-label={t('toolbar.removeCourseMaterial')}
                           >

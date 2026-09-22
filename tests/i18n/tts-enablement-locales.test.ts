@@ -21,11 +21,7 @@ const locales = {
 // The four original `ttsProviderEnabled*` keys were superseded by the
 // generic provider header switch (`enableThisProvider*`) when the model
 // services list was unified across modalities.
-const KEYS = [
-  'settings.enableThisProvider',
-  'settings.enableThisProviderHint',
-  'agentBar.noVoice',
-];
+const KEYS = ['settings.enableThisProvider', 'settings.enableThisProviderHint', 'agentBar.noVoice'];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- locale JSON traversal
 const get = (o: any, k: string) => k.split('.').reduce((a, p) => a?.[p], o);

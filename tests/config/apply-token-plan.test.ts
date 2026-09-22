@@ -419,7 +419,6 @@ describe('removeTokenPlan', () => {
   });
 });
 
-
 describe('token plan enrollment bookkeeping', () => {
   it('isTokenPlanActive requires the explicit enrollment marker, not just a key', async () => {
     const { isTokenPlanActive } = await import('@/lib/config/apply-token-plan');
@@ -460,10 +459,7 @@ describe('token plan enrollment bookkeeping', () => {
     applyTokenPlan(minimax, 'sk-mm', actions);
 
     expect(actions.setTokenPlanEnrolled).toHaveBeenCalledWith('minimax', 'minimax');
-    expect(actions.setTokenPlanSeedVersion).toHaveBeenCalledWith(
-      'minimax',
-      expect.any(String),
-    );
+    expect(actions.setTokenPlanSeedVersion).toHaveBeenCalledWith('minimax', expect.any(String));
   });
 
   it('applyTokenPlan records enrollment even when seeding throws, but not the fingerprint', () => {
@@ -493,8 +489,8 @@ describe('token plan enrollment bookkeeping', () => {
 
     // Image apply failed → its seeding (customModels + active selection) must
     // not run, or the selection would point at a keyless provider.
-    const imageWrites = (actions.setImageProviderConfig as unknown as ReturnType<typeof vi.fn>)
-      .mock.calls as Array<[string, Record<string, unknown>]>;
+    const imageWrites = (actions.setImageProviderConfig as unknown as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[string, Record<string, unknown>]>;
     expect(imageWrites.every(([, cfg]) => !('customModels' in (cfg ?? {})))).toBe(true);
     expect(actions.setImageProvider).not.toHaveBeenCalled();
     expect(actions.setImageModelId).not.toHaveBeenCalled();
@@ -543,7 +539,6 @@ describe('token plan enrollment bookkeeping', () => {
     ).filter(([id]) => id === 'seedream');
     expect(seedreamWrites).toHaveLength(0);
   });
-
 });
 
 describe('授权开关（启用此套餐）', () => {

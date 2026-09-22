@@ -1127,7 +1127,8 @@ function Inspector(props: {
                 {Object.values(WEB_SEARCH_PROVIDERS)
                   .filter((provider) => {
                     const cfg = props.webSearch.providersConfig[provider.id];
-                    const usable = isWebSearchProviderConfigured(provider, cfg) && cfg?.enabled !== false;
+                    const usable =
+                      isWebSearchProviderConfigured(provider, cfg) && cfg?.enabled !== false;
                     return (
                       usable ||
                       // 当前失效的选中项保留为一行灰提示，避免 SelectValue 空白。
@@ -1375,9 +1376,7 @@ function Inspector(props: {
                     };
                   })}
                   value={
-                    selectionValid
-                      ? { providerId: slot.providerId, modelId: slot.modelId }
-                      : null
+                    selectionValid ? { providerId: slot.providerId, modelId: slot.modelId } : null
                   }
                   placeholder={t(`${cm}.pickModel`)}
                   onSelect={(pid, mid) => {

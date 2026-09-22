@@ -74,7 +74,10 @@ function modalityHasCredentials(
   providerId: string,
   state: Pick<
     SettingsState,
-    'imageProvidersConfig' | 'videoProvidersConfig' | 'ttsProvidersConfig' | 'webSearchProvidersConfig'
+    | 'imageProvidersConfig'
+    | 'videoProvidersConfig'
+    | 'ttsProvidersConfig'
+    | 'webSearchProvidersConfig'
   >,
 ): boolean {
   // The per-modality config maps are keyed by concrete id unions; view them

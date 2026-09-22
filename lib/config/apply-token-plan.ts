@@ -2,12 +2,12 @@ import type { ProviderId } from '@/lib/types/provider';
 import type { ImageProviderId, VideoProviderId } from '@/lib/media/types';
 import type { TTSProviderId } from '@/lib/audio/types';
 import type { WebSearchProviderId } from '@/lib/web-search/types';
-import {
-  MODALITY_ORDER,
-  TOKEN_PLAN_PRESETS,
-  tokenPlanSeedFingerprint,
+import { MODALITY_ORDER, TOKEN_PLAN_PRESETS, tokenPlanSeedFingerprint } from './token-plan-presets';
+import type {
+  TokenPlanModality,
+  TokenPlanModalityTarget,
+  TokenPlanPreset,
 } from './token-plan-presets';
-import type { TokenPlanModality, TokenPlanModalityTarget, TokenPlanPreset } from './token-plan-presets';
 import { getCatalogThinkingCapability } from '@/lib/ai/model-metadata';
 import { PROVIDERS } from '@/lib/ai/providers';
 import { findModelById } from '@/lib/ai/model-aliases';
