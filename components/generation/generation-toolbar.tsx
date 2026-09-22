@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useMemo, useEffect } from 'react';
-import { Paperclip, FileText, X } from 'lucide-react';
+import { Bot, Paperclip, FileText, X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
@@ -10,9 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useSettingsStore } from '@/lib/store/settings';
+import { getThinkingConfigKey } from '@/lib/ai/thinking-config';
+import type { SettingsSection } from '@/lib/types/settings';
 import { PDF_PROVIDERS } from '@/lib/pdf/constants';
 import type { PDFProviderId } from '@/lib/pdf/types';
 import { getAcceptStringForProviders, isMimeSupportedByProviders } from '@/lib/document/mime';
@@ -22,6 +25,8 @@ import {
 } from '@/lib/document/bundle';
 import { dedupeCourseMaterialFiles } from '@/lib/document/course-materials';
 import type { SelectedCourseMaterial } from '@/lib/types/generation';
+import { ModelPicker } from '@/components/settings/model-picker';
+import { useLLMPickerGroups } from '@/components/settings/use-llm-picker-groups';
 
 // ─── Constants ───────────────────────────────────────────────
 const MAX_COURSE_MATERIAL_SIZE_MB = 50;
@@ -41,6 +46,11 @@ export interface GenerationToolbarProps {
    * are inert under the same flag; this only mirrors it in the UI.
    */
   materialsLocked?: boolean;
+  /**
+   * Open the settings dialog at a section. Backs the "Set up model" CTA shown
+   * when no usable LLM provider exists (#580: the homepage must never dead-end).
+   */
+  onSettingsOpen?: (section: SettingsSection) => void;
 }
 
 // ─── Component ───────────────────────────────────────────────
@@ -50,13 +60,23 @@ export function GenerationToolbar({
   onCourseMaterialRemove,
   onPdfError,
   materialsLocked = false,
+  onSettingsOpen,
 }: GenerationToolbarProps) {
   const { t } = useI18n();
   const pdfProviderId = useSettingsStore((s) => s.pdfProviderId);
   const pdfProvidersConfig = useSettingsStore((s) => s.pdfProvidersConfig);
   const setPDFProvider = useSettingsStore((s) => s.setPDFProvider);
+  const providerId = useSettingsStore((s) => s.providerId);
+  const modelId = useSettingsStore((s) => s.modelId);
+  const setModel = useSettingsStore((s) => s.setModel);
+  const thinkingConfigs = useSettingsStore((s) => s.thinkingConfigs);
+  const setThinkingConfig = useSettingsStore((s) => s.setThinkingConfig);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+
+  const { groups: llmPickerGroups } = useLLMPickerGroups();
+  const currentProviderName = llmPickerGroups.find((g) => g.id === providerId)?.name ?? providerId;
+  const currentThinkingConfig = thinkingConfigs[getThinkingConfigKey(providerId, modelId)];
 
   // Course material handler. `plain-text` is always active alongside the
   // user-selected extractor so txt/md files remain uploadable without
@@ -147,6 +167,39 @@ export function GenerationToolbar({
 
   return (
     <div className="flex items-center gap-1 flex-wrap">
+      {/* ── Model selection: pill (picker popover) or Set-up CTA (#580) ── */}
+      {llmPickerGroups.length > 0 ? (
+        <ModelPicker
+          groups={llmPickerGroups}
+          value={providerId && modelId ? { providerId, modelId } : null}
+          onSelect={(pid, mid) => setModel(pid as Parameters<typeof setModel>[0], mid)}
+          thinkingConfig={currentThinkingConfig}
+          onThinkingChange={(config) => setThinkingConfig(providerId, modelId, config)}
+          ariaLabel={`${currentProviderName} / ${modelId}`}
+          className="h-8 w-auto max-w-[260px] gap-1.5 rounded-full px-2.5 text-xs"
+          t={t}
+        />
+      ) : (
+        onSettingsOpen && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => onSettingsOpen('model-services')}
+                className={cn(
+                  pillCls,
+                  'text-amber-600 dark:text-amber-400 animate-pulse',
+                  'bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-950/50',
+                )}
+              >
+                <Bot className="size-3.5" />
+                <span>{t('toolbar.configureProvider')}</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{t('toolbar.configureProviderHint')}</TooltipContent>
+          </Tooltip>
+        )
+      )}
+
       {/* ── Course material (extractor + upload) combined Popover ── */}
       <Popover>
         <PopoverTrigger asChild>

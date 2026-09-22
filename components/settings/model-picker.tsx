@@ -286,6 +286,7 @@ export function ModelPicker({
   onThinkingChange,
   size = 'sm',
   className,
+  ariaLabel,
   t,
 }: {
   groups: ModelPickerGroup[];
@@ -302,6 +303,8 @@ export function ModelPicker({
   onThinkingChange?: (config: ThinkingConfig | undefined) => void;
   size?: 'sm' | 'md';
   className?: string;
+  /** 触发器的可及名。首页工具栏传 `Provider / Model`，e2e 与读屏都依赖它。 */
+  ariaLabel?: string;
   t: (key: string) => string;
 }) {
   const [open, setOpen] = useState(false);
@@ -360,6 +363,7 @@ export function ModelPicker({
       <PopoverTrigger asChild>
         <button
           disabled={disabled}
+          aria-label={ariaLabel}
           className={cn(
             'inline-flex min-w-0 items-center gap-1.5 text-[11px] font-medium transition-colors',
             'hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',

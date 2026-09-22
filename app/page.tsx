@@ -897,6 +897,10 @@ function HomePage() {
                   onCourseMaterialRemove={removeCourseMaterial}
                   onPdfError={setError}
                   materialsLocked={preparingGenerate}
+                  onSettingsOpen={(section) => {
+                    setSettingsSection(section);
+                    setSettingsOpen(true);
+                  }}
                 />
               </div>
 
