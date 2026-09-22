@@ -18,11 +18,12 @@ const locales = {
 };
 
 // New keys introduced for the TTS provider-enablement model (#665).
+// The four original `ttsProviderEnabled*` keys were superseded by the
+// generic provider header switch (`enableThisProvider*`) when the model
+// services list was unified across modalities.
 const KEYS = [
-  'settings.ttsProviderEnabledLabel',
-  'settings.ttsProviderEnabledHint',
-  'settings.ttsProviderUnavailableHint',
-  'settings.ttsProviderDisabledByAdmin',
+  'settings.enableThisProvider',
+  'settings.enableThisProviderHint',
   'agentBar.noVoice',
 ];
 
