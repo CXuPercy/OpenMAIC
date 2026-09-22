@@ -12,6 +12,12 @@ export type ProviderCfgLike = {
   baseUrl?: string;
   /** Operator force-disabled (server precedence, TTS — #665). Never usable. */
   serverDisabled?: boolean;
+  /**
+   * User-level authorization toggle (模型服务 provider switch). An explicitly
+   * disabled provider must not be (re-)adopted as a selection here — same
+   * semantics the LLM mainline resolver applies.
+   */
+  enabled?: boolean;
 };
 
 /**
@@ -27,6 +33,9 @@ export function isProviderUsable(cfg: ProviderCfgLike | undefined): boolean {
   // Operator force-disable wins over any local credential path so the current
   // selection is re-pointed away from a server-disabled provider (#665).
   if (cfg.serverDisabled) return false;
+  // The user's authorization toggle wins too: a disabled provider with a
+  // perfectly good key is still not selectable as a fallback target.
+  if (cfg.enabled === false) return false;
   if (cfg.isServerConfigured) return true;
   // Keyless providers (e.g. Ollama) need an explicit user-provided baseUrl
   if (cfg.requiresApiKey === false) return !!cfg.baseUrl;
