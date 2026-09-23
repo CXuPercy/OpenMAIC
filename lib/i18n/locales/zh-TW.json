@@ -1856,7 +1856,6 @@
       "capWebSearch": "網路搜尋",
       "stageSlide": "課件頁面",
       "stageInteractive": "互動頁面",
-      "stageAgent": "專業模式 Agent",
       "planNoteEditable": "此為預設配置，各節點對應模型可在「課程模型設定」中修改",
       "statusDisabled": "已連接（未啟用）",
       "enableThisPlan": "啟用此套餐",
@@ -1943,10 +1942,8 @@
           "scene-actions": "為場景內容補全講解詞與教學動作，供語音合成與課堂演繹。",
           "tts": "把講稿合成為師生語音（逐場景、串行）。",
           "media": "兌現內容中的圖片／視頻佔位符，與逐場景流程並行執行。",
-          "interaction": "課程生成後的課堂運行期：多智能體對話、PBL 運行時與測驗批改。",
-          "pro-mode": "Pro 模式（MAIC 編輯器）的 AI 代理：透過多步工具呼叫完成課程的插入、重排、重生成等編輯，會話標題也在此產生；建議配置較強的模型。"
-        },
-        "proMode": "Pro 模式"
+          "interaction": "課程生成後的課堂運行期：多智能體對話、PBL 運行時與測驗批改。"
+        }
       },
       "mediaEnableNeedsSetup": "請先在「模型服務」設定 API Key，或啟用 Token Plan 後再開啟"
     },

@@ -1871,7 +1871,6 @@
       "capWebSearch": "Websuche",
       "stageSlide": "Kursfolien",
       "stageInteractive": "Interaktiv",
-      "stageAgent": "Pro-Modus-Agent",
       "planNoteEditable": "Dies ist die Standardkonfiguration; das Modell jedes Knotens lässt sich in der Kursmodell-Konfiguration ändern.",
       "statusDisabled": "Verbunden (aus)",
       "enableThisPlan": "Dieses Paket aktivieren",
@@ -1958,10 +1957,8 @@
           "scene-actions": "Vervollständigt Erzähltext und Unterrichtsaktionen je Szene und versorgt Sprachsynthese und Kursablauf.",
           "tts": "Synthetisiert Erzähltext in Lehr-/Lernstimmen (je Szene, seriell).",
           "media": "Löst die Bild-/Videoplatzhalter im generierten Inhalt parallel zur Szenen-Schleife auf.",
-          "interaction": "Die Kursklassenlaufzeit nach der Generierung: Multi-Agenten-Chat, PBL-Laufzeit und Quiz-Bewertung.",
-          "pro-mode": "Der KI-Agent hinter der Pro-Modus-Bearbeitung: plant und setzt Kursbearbeitungen (Einfügen, Umsortieren, Regenerieren) über mehrstufige Werkzeugaufrufe um und erzeugt auch Gesprächstitel. Empfohlen: ein starkes Modell."
-        },
-        "proMode": "Pro-Modus"
+          "interaction": "Die Kursklassenlaufzeit nach der Generierung: Multi-Agenten-Chat, PBL-Laufzeit und Quiz-Bewertung."
+        }
       },
       "mediaEnableNeedsSetup": "Konfiguriere zuerst einen API-Key in „Modell-Dienste“ oder aktiviere einen Token-Plan."
     },

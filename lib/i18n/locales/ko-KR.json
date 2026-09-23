@@ -1871,7 +1871,6 @@
       "capWebSearch": "웹 검색",
       "stageSlide": "슬라이드",
       "stageInteractive": "인터랙티브",
-      "stageAgent": "Pro 모드 Agent",
       "planNoteEditable": "기본 구성입니다. 각 노드의 모델은 '코스 모델 설정'에서 변경할 수 있습니다.",
       "statusDisabled": "연결됨(사용 안 함)",
       "enableThisPlan": "이 플랜 사용",
@@ -1958,10 +1957,8 @@
           "scene-actions": "장면별 내레이션과 교수 액션을 채워 음성 합성과 수업 재생에 공급합니다.",
           "tts": "내레이션을 교사·학생 목소리로 합성합니다(장면별, 순차 실행).",
           "media": "생성된 콘텐츠 내 이미지·비디오 자리표시자를 장면 루프와 병렬로 채웁니다.",
-          "interaction": "생성 이후 수업 런타임: 멀티 에이전트 채팅, PBL 런타임, 퀴즈 채점.",
-          "pro-mode": "Pro 모드 편집을 담당하는 AI 에이전트: 다단계 도구 호출로 삽입·재정렬·재생성 등 코스 편집을 수행하고 대화 제목도 생성합니다. 강력한 모델을 권장합니다."
-        },
-        "proMode": "Pro 모드"
+          "interaction": "생성 이후 수업 런타임: 멀티 에이전트 채팅, PBL 런타임, 퀴즈 채점."
+        }
       },
       "mediaEnableNeedsSetup": "'모델 서비스'에서 API 키를 구성하거나 Token Plan을 활성화한 뒤 켜세요."
     },

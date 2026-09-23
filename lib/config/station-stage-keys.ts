@@ -13,7 +13,6 @@
  * 静态校验，防止两端漂移。
  */
 export const STATION_STAGE_KEYS: Record<string, readonly string[]> = {
-  'pro-mode': ['maic-agent-driver'],
   'web-research': ['web-search-query-rewrite'],
   outline: ['scene-outlines-stream'],
   agents: ['agent-profiles'],

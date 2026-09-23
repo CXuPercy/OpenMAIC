@@ -1871,7 +1871,6 @@
       "capWebSearch": "Web search",
       "stageSlide": "Slides",
       "stageInteractive": "Interactive",
-      "stageAgent": "Pro-mode agent",
       "planNoteEditable": "This is the default setup; each node's model can be changed in Course Model Config.",
       "statusDisabled": "Connected (off)",
       "enableThisPlan": "Enable this plan",
@@ -1958,10 +1957,8 @@
           "scene-actions": "Completes narration and teaching actions for each scene, feeding speech synthesis and classroom play.",
           "tts": "Synthesizes narration into teacher/student voices (per scene, serial).",
           "media": "Fulfills the image/video placeholders in the generated content, in parallel with the per-scene loop.",
-          "interaction": "The classroom runtime after generation: multi-agent chat, the PBL runtime and quiz grading.",
-          "pro-mode": "The AI agent behind Pro-mode editing: it plans and applies course edits (insert, reorder, regenerate) through multi-step tool calls, and generates conversation titles too. Best served by a strong model."
-        },
-        "proMode": "Pro Mode"
+          "interaction": "The classroom runtime after generation: multi-agent chat, the PBL runtime and quiz grading."
+        }
       },
       "mediaEnableNeedsSetup": "Configure an API key in Model Services or enable a Token Plan first, then turn this on."
     },

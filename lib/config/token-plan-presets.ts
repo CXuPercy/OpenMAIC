@@ -107,9 +107,9 @@ export const TOKEN_PLAN_PRESETS: TokenPlanPreset[] = [
         providerId: 'tokendance',
         baseUrl: 'https://tokendance.space/gateway/v1',
         apiFormat: 'openai',
-        // cogevol 系列是套餐主推的课程生成模型：base 做主线，slide/interactive
-        // 分管课件与互动页面；专业模式 Agent 用 deepseek-v4.1-flash（多步工具
-        // 调用要求 OpenAI 兼容 + 低延迟）。
+        // The plan's own model family is its primary course-generation set: base
+        // drives the mainline while slide/interactive cover courseware and
+        // interactive pages.
         defaultModels: [
           'cogevol-base',
           'cogevol-slide-0828',
@@ -126,7 +126,6 @@ export const TOKEN_PLAN_PRESETS: TokenPlanPreset[] = [
         stageRoutes: {
           'scene-content:slide': 'cogevol-slide-0828',
           'scene-content:interactive': 'cogevol-interactive-0828',
-          'maic-agent-driver': 'deepseek-v4.1-flash',
         },
       },
       image: {

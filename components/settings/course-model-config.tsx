@@ -8,7 +8,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Bot,
   CornerDownRight,
   Eye,
   FileStack,
@@ -73,7 +72,6 @@ const CARD_MIN_H = 72;
 const CANVAS_PAD = 28;
 
 const STATION_POS: Record<string, { x: number; y: number }> = {
-  'pro-mode': { x: 0, y: 0 },
   'doc-parse': { x: 215, y: 0 },
   'web-research': { x: 430, y: 0 },
   outline: { x: 645, y: 0 },
@@ -86,13 +84,7 @@ const STATION_POS: Record<string, { x: number; y: number }> = {
 };
 
 const RAILS: Array<{ pts: Array<[number, number]>; dashed?: boolean }> = [
-  // 第一行：Pro 模式 → 文档解析 → 联网调研 → 大纲规划
-  {
-    pts: [
-      [190, 36],
-      [215, 36],
-    ],
-  },
+  // First row: document parsing → web research → outline planning
   {
     pts: [
       [405, 36],
@@ -204,13 +196,6 @@ interface StationDef {
 
 const STATIONS: StationDef[] = [
   {
-    id: 'pro-mode',
-    labelKey: 'settings.courseModels.stations.proMode',
-    kind: 'llm',
-    stages: STATION_STAGE_KEYS['pro-mode'],
-    subSlots: [{ key: 'conversation-title', labelKey: 'settings.courseModels.subStages.title' }],
-  },
-  {
     id: 'doc-parse',
     labelKey: 'settings.courseModels.stations.docParse',
     kind: 'media',
@@ -278,7 +263,6 @@ const STATIONS: StationDef[] = [
 ];
 
 const STATION_ICONS: Record<string, typeof FileStack> = {
-  'pro-mode': Bot,
   'doc-parse': FileStack,
   'web-research': Search,
   outline: ListTree,

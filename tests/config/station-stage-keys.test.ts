@@ -13,6 +13,23 @@ import { getUserStageRoute, LLM_STAGES, type UserStageRoute } from '@/lib/server
 
 const interactionRoute: UserStageRoute = { model: 'minimax-m2.7' };
 
+/**
+ * Stages intentionally not covered by any Course Model Config station. Each
+ * exception is deliberate, not a missed knob:
+ * - conversation-title: reuses the agent-driver connection, not a course stage;
+ * - generate-classroom / maic-agent: mainline / legacy entry points;
+ * - maic-agent-driver: operator-only. It is resolved exclusively from the
+ *   operator's MODEL_ROUTES (with an explicit api dialect and contextWindow) in
+ *   agent-runtime/agent-driver-model.ts, so the UI deliberately offers no
+ *   user-level override for it.
+ */
+const STAGES_WITHOUT_A_STATION = [
+  'conversation-title',
+  'generate-classroom',
+  'maic-agent',
+  'maic-agent-driver',
+] as const;
+
 /** 模拟 UI 写入：互动站点覆盖时整组键一起落同一个路由。 */
 function routesFor(keys: readonly string[]): Record<string, UserStageRoute> {
   const routes: Record<string, UserStageRoute> = {};
@@ -46,11 +63,12 @@ describe('station stage keys contract', () => {
       }
     }
     const uncovered = LLM_STAGES.filter((stage) => !coveredWithFallback.has(stage));
-    // 豁免清单（每一个都要有理由，新增孤儿键时应 consciously 挂到站点）：
-    // - conversation-title：Pro 模式站点的子槽独立旋钮（subSlots 单独选择，
-    //   不随站点主键整组写）；
-    // - generate-classroom / maic-agent：主线级/遗留入口，不属于任何站点旋钮。
-    expect(uncovered.sort()).toEqual(['conversation-title', 'generate-classroom', 'maic-agent']);
+    expect(uncovered.sort()).toEqual([...STAGES_WITHOUT_A_STATION].sort());
+  });
+
+  it('does not expose the operator-only agent driver as a user override', () => {
+    const covered = new Set(Object.values(STATION_STAGE_KEYS).flat());
+    expect(covered.has('maic-agent-driver')).toBe(false);
   });
 });
 

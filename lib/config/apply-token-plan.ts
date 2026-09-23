@@ -68,7 +68,7 @@ export interface TokenPlanActions {
    * Optional main-model + stage-route setters. LLM apply makes the plan's
    * `defaultModelId` (or first catalogue model) the mainline selection and
    * writes the preset's recommended per-stage routes (e.g. courseware /
-   * interactive / pro-mode agent models).
+   * interactive page models).
    */
   setModel?: (providerId: ProviderId, modelId: string) => void;
   setStageRoute?: (

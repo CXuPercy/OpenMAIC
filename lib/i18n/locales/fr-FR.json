@@ -1871,7 +1871,6 @@
       "capWebSearch": "Recherche web",
       "stageSlide": "Diapositives",
       "stageInteractive": "Interactif",
-      "stageAgent": "Agent mode Pro",
       "planNoteEditable": "Ceci est la configuration par défaut ; le modèle de chaque nœud peut être modifié dans la configuration des modèles de cours.",
       "statusDisabled": "Connecté (désactivé)",
       "enableThisPlan": "Activer ce forfait",
@@ -1958,10 +1957,8 @@
           "scene-actions": "Complète la narration et les actions pédagogiques de chaque scène pour alimenter la synthèse vocale et le déroulé en classe.",
           "tts": "Synthétise la narration en voix d'enseignant/élève (par scène, en série).",
           "media": "Résout les emplacements image/vidéo du contenu généré, en parallèle de la boucle par scène.",
-          "interaction": "Le runtime de la classe après génération : chat multi-agent, runtime PBL et notation des quiz.",
-          "pro-mode": "L'agent IA de l'édition en mode Pro : il planifie et applique les modifications du cours (insérer, réordonner, régénérer) via des appels d'outils multi-étapes et génère aussi les titres de conversation. Un modèle performant est recommandé."
-        },
-        "proMode": "Mode Pro"
+          "interaction": "Le runtime de la classe après génération : chat multi-agent, runtime PBL et notation des quiz."
+        }
       },
       "mediaEnableNeedsSetup": "Configurez d'abord une clé API dans Services de modèles ou activez un Token Plan."
     },

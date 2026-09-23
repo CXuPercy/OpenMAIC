@@ -1871,7 +1871,6 @@
       "capWebSearch": "Tìm kiếm web",
       "stageSlide": "Trang slide",
       "stageInteractive": "Tương tác",
-      "stageAgent": "Agent chế độ Pro",
       "planNoteEditable": "Đây là cấu hình mặc định; mô hình của từng nút có thể thay đổi trong «Cấu hình mô hình khóa học».",
       "statusDisabled": "Đã kết nối (đang tắt)",
       "enableThisPlan": "Bật gói này",
@@ -1958,10 +1957,8 @@
           "scene-actions": "Hoàn thiện lời dẫn và hành động giảng dạy cho từng cảnh, cấp cho tổng hợp giọng nói và trình chiếu lớp học.",
           "tts": "Tổng hợp lời dẫn thành giọng giáo viên/học viên (theo từng cảnh, tuần tự).",
           "media": "Điền các chỗ giữ chỗ ảnh/video trong nội dung đã tạo, song song với vòng lặp theo cảnh.",
-          "interaction": "Thời gian chạy lớp học sau khi tạo: chat đa tác nhân, thời gian chạy PBL và chấm trắc nghiệm.",
-          "pro-mode": "AI agent đứng sau chỉnh sửa chế độ Pro: lập kế hoạch và thực hiện các chỉnh sửa khóa học (chèn, sắp xếp lại, tạo lại) qua nhiều bước gọi công cụ, đồng thời tạo tiêu đề hội thoại. Nên dùng mô hình mạnh."
-        },
-        "proMode": "Chế độ Pro"
+          "interaction": "Thời gian chạy lớp học sau khi tạo: chat đa tác nhân, thời gian chạy PBL và chấm trắc nghiệm."
+        }
       },
       "mediaEnableNeedsSetup": "Hãy cấu hình API key trong «Dịch vụ mô hình» hoặc bật Token Plan trước."
     },

@@ -121,7 +121,7 @@ describe('applyTokenPlan', () => {
       }),
     );
     // The plan's recommended mainline model + per-stage routes are seeded as the
-    // default course model configuration (courseware / interactive / pro agent).
+    // default course model configuration (courseware / interactive).
     expect(actions.setModel).toHaveBeenCalledWith('tokendance', 'cogevol-base');
     expect(actions.setStageRoute).toHaveBeenCalledWith('scene-content:slide', {
       providerId: 'tokendance',
@@ -131,10 +131,7 @@ describe('applyTokenPlan', () => {
       providerId: 'tokendance',
       modelId: 'cogevol-interactive-0828',
     });
-    expect(actions.setStageRoute).toHaveBeenCalledWith('maic-agent-driver', {
-      providerId: 'tokendance',
-      modelId: 'deepseek-v4.1-flash',
-    });
+    expect(actions.setStageRoute).not.toHaveBeenCalledWith('maic-agent-driver', expect.anything());
     // TTS / web search become the active selections so the pipeline reflects
     // the plan's models out of the box.
     expect(actions.setTTSProvider).toHaveBeenCalledWith('minimax-tts');

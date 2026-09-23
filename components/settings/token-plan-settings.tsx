@@ -106,7 +106,6 @@ interface ModelPlanItem {
 const MODEL_PLAN_STAGE_LABEL_KEYS: Record<string, string> = {
   'scene-content:slide': 'settings.tokenPlan.stageSlide',
   'scene-content:interactive': 'settings.tokenPlan.stageInteractive',
-  'maic-agent-driver': 'settings.tokenPlan.stageAgent',
 };
 
 const MODEL_PLAN_CAPABILITY_LABEL_KEYS: Record<TokenPlanModality, string> = {

@@ -117,6 +117,22 @@ function pruneUnusableStageRoutes(
   return changed ? next : null;
 }
 
+/**
+ * Stage routes that are operator-only and can never take effect from the
+ * client-side Course Model Config UI. `maic-agent-driver` is resolved
+ * exclusively from the operator's MODEL_ROUTES (with an explicit api dialect
+ * and contextWindow) in agent-runtime/agent-driver-model.ts, so a persisted
+ * user route for it is dead weight. Drop any leftover entry; returns null when
+ * nothing changed so callers can skip the write.
+ */
+function pruneOperatorOnlyStageRoutes(
+  routes: SettingsState['llmStageRoutes'] | undefined,
+): SettingsState['llmStageRoutes'] | null {
+  if (!routes || !('maic-agent-driver' in routes)) return null;
+  const { 'maic-agent-driver': _retired, ...rest } = routes;
+  return rest;
+}
+
 function pruneThinkingConfigs(
   thinkingConfigs: Record<string, ThinkingConfig> | undefined,
   providersConfig: ProvidersConfig | undefined,
@@ -2479,6 +2495,8 @@ export const useSettingsStore = create<SettingsState>()(
         ensureBuiltInAudioProviders(state);
         ensureBuiltInWebSearchProviders(state);
         state.thinkingConfigs = pruneThinkingConfigs(state.thinkingConfigs, state.providersConfig);
+        const prunedOperatorOnly = pruneOperatorOnlyStageRoutes(state.llmStageRoutes);
+        if (prunedOperatorOnly) state.llmStageRoutes = prunedOperatorOnly;
 
         return state;
       },
@@ -2524,6 +2542,8 @@ export const useSettingsStore = create<SettingsState>()(
           typedMerged.thinkingConfigs,
           typedMerged.providersConfig,
         );
+        const prunedOperatorOnly = pruneOperatorOnlyStageRoutes(typedMerged.llmStageRoutes);
+        if (prunedOperatorOnly) typedMerged.llmStageRoutes = prunedOperatorOnly;
         return merged as SettingsState;
       },
     },
