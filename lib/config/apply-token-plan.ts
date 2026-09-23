@@ -248,25 +248,33 @@ function sharedOwnerYields(
 }
 
 /**
- * 共享 provider 凭证归属的再解析（review P0-03）：某套餐被关闭/移除后，
- * 它占用过的共享槽位必须交还给剩余生效套餐中优先级最高者——凭证、baseUrl
- * 与目录一并恢复（owner 的网关 key 取自其 LLM provider 槽位，即连接时写入
- * 的同一把 key）。没有剩余 owner 时不写（授权级联已把该 provider 关闭）。
- * 连接顺序无关：owner 恒为列表中更靠前的生效套餐。
+ * 共享 provider 凭证归属的再解析（review P0-03）：共享槽位在任一授权变更后
+ * 都必须归属于「生效套餐中优先级最高者」——凭证、baseUrl 与目录一并重写
+ * （owner 的网关 key 取自其 LLM provider 槽位，即连接时写入的同一把 key）。
+ *
+ * excludeConcerned 语义（regression #2 的教训）：
+ * - 关闭/移除（true）：排除被关注的套餐，槽位交给剩余生效套餐；
+ * - 重新开启（false）：**纳入**被关注的套餐参与归属解析——否则刚刚启用的
+ *   高优先级套餐会被自己排除，槽位继续留在低优先级套餐手里。
+ * 没有剩余 owner 时不写：disable 路径由授权级联关闭该 provider；remove 路径
+ * 由 usable 判定走 removeModality 清理。
  */
 export function restoreSharedProviderCredentials(
-  excludedPresetId: string,
+  concernedPresetId: string,
   actions: TokenPlanActions,
   state: TokenPlanEnrollmentState,
+  opts?: { excludeConcerned?: boolean },
 ): void {
-  const excluded = TOKEN_PLAN_PRESETS.find((p) => p.id === excludedPresetId);
-  if (!excluded) return;
+  const concerned = TOKEN_PLAN_PRESETS.find((p) => p.id === concernedPresetId);
+  if (!concerned) return;
+  const excludeConcerned = opts?.excludeConcerned !== false;
+  const excludedId = excludeConcerned ? concernedPresetId : undefined;
 
   for (const modality of MODALITY_ORDER) {
-    const target = excluded.modalities[modality];
+    const target = concerned.modalities[modality];
     if (!target) continue;
-    // 仅共享槽位需要交还：独占槽位由 removeModality/授权级联处理。
-    const owner = sharedModalityOwner(modality, target.providerId, state, excludedPresetId);
+    // 仅共享槽位需要再解析：独占槽位由 removeModality/授权级联处理。
+    const owner = sharedModalityOwner(modality, target.providerId, state, excludedId);
     if (!owner) continue;
     const ownerTarget = owner.modalities[modality];
     if (!ownerTarget) continue;
@@ -278,7 +286,7 @@ export function restoreSharedProviderCredentials(
       applyModality(modality, ownerTarget, owner, ownerKey, actions);
       seedPlanModels(owner, actions, { modalities: [modality], priorityState: state });
     } catch {
-      // 与 apply/remove 同口径：单模态失败不阻断其余交还。
+      // 与 apply/remove 同口径：单模态失败不阻断其余重写。
     }
   }
 }
@@ -609,16 +617,29 @@ export function removeTokenPlan(preset: TokenPlanPreset, actions: TokenPlanActio
   const results: ApplyResult[] = [];
 
   // Plans share media providers (e.g. tokendance and volcengine-ark both ride
-  // `seedream`): when another ENROLLED plan still targets the same provider,
-  // its credentials own it now and clearing them would break that plan.
-  const enrollments = actions.getTokenPlanEnrollments?.() ?? {};
+  // `seedream`): only another USABLE (enrolled AND still enabled) plan holds
+  // real claim to the slot — the removed plan's credentials must not survive
+  // behind a merely-enrolled-but-disabled plan (review P0-03 regression #2:
+  // disconnecting TD while Seed is disabled left TD's key usable on seedream).
+  // Without a priority state (headless callers) fall back to enrollment.
+  const priorityState = actions.getTokenPlanPriorityState?.();
   const ownedByOtherPlan = (providerId: string): boolean =>
-    Object.keys(enrollments).some((pid) => {
-      if (pid === preset.id) return false;
-      const other = TOKEN_PLAN_PRESETS.find((p) => p.id === pid);
-      if (!other) return false;
-      return MODALITY_ORDER.some((m) => other.modalities[m]?.providerId === providerId);
-    });
+    priorityState
+      ? TOKEN_PLAN_PRESETS.some(
+          (p) =>
+            p.id !== preset.id &&
+            isTokenPlanUsable(p, priorityState) &&
+            MODALITY_ORDER.some((m) => p.modalities[m]?.providerId === providerId),
+        )
+      : (() => {
+          const enrollments = actions.getTokenPlanEnrollments?.() ?? {};
+          return Object.keys(enrollments).some((pid) => {
+            if (pid === preset.id) return false;
+            const other = TOKEN_PLAN_PRESETS.find((p) => p.id === pid);
+            if (!other) return false;
+            return MODALITY_ORDER.some((m) => other.modalities[m]?.providerId === providerId);
+          });
+        })();
 
   // Drop the user-level stage routes this plan seeded (courseware / interactive /
   // pro-agent picks), so removal doesn't leave dead routes onto a keyless
@@ -663,8 +684,7 @@ export function removeTokenPlan(preset: TokenPlanPreset, actions: TokenPlanActio
 
   // 共享槽位交还（review P0-03）：被移除套餐占用过的共享 provider，凭证与
   // 目录归还给剩余生效套餐中优先级最高者（跳过清理的那些槽位此前可能写着
-  // 本套餐的 key）。
-  const priorityState = actions.getTokenPlanPriorityState?.();
+  // 本套餐的 key）。状态是移除前读的快照——restore 以 id 排除本套餐，语义等价。
   if (priorityState) {
     restoreSharedProviderCredentials(preset.id, actions, priorityState);
   }

@@ -810,3 +810,78 @@ describe('shared provider credential ownership (review P0-03)', () => {
     expect(imageWrites(actions)).toHaveLength(0);
   });
 });
+
+// ── P0-03 复验发现的两个 regression：enable 要夺回、remove 要清理 ──
+describe('shared ownership regressions from re-review', () => {
+  const tokendance = TOKEN_PLAN_PRESETS.find((p) => p.id === 'tokendance')!;
+  const ark = TOKEN_PLAN_PRESETS.find((p) => p.id === 'volcengine-ark')!;
+
+  const bothEnrolled: TokenPlanEnrollmentState = {
+    tokenPlanEnrollments: { tokendance: 'tokendance', 'volcengine-ark': 'doubao' },
+    providersConfig: {
+      tokendance: { apiKey: 'sk-td' },
+      doubao: { apiKey: 'sk-ark' },
+    },
+  };
+
+  const imageWrites = (actions: TokenPlanActions) =>
+    (
+      (actions.setImageProviderConfig as unknown as ReturnType<typeof vi.fn>).mock.calls as Array<
+        [string, Record<string, unknown>]
+      >
+    ).filter(([id]) => id === 'seedream');
+
+  it('重新开启高优先级套餐：纳入 owner 解析，夺回共享槽位（regression #1）', () => {
+    const actions = makeActions();
+    // TD 刚被重新启用（tokenPlanDisabled 已不含 TD），槽位此刻还在 Seed 手里。
+    restoreSharedProviderCredentials(
+      'tokendance',
+      actions,
+      { ...bothEnrolled }, // TD usable
+      { excludeConcerned: false },
+    );
+    const writes = imageWrites(actions);
+    expect(writes.some(([, cfg]) => cfg.apiKey === 'sk-td')).toBe(true);
+    expect(writes.some(([, cfg]) => cfg.baseUrl === tokendance.modalities.image!.baseUrl)).toBe(
+      true,
+    );
+  });
+
+  it('重新开启低优先级套餐：不抢走高优先级 owner 的槽位', () => {
+    const actions = makeActions();
+    restoreSharedProviderCredentials(
+      'volcengine-ark',
+      actions,
+      { ...bothEnrolled }, // 两者 usable，owner = tokendance
+      { excludeConcerned: false },
+    );
+    const writes = imageWrites(actions);
+    // 仍重写为 owner（tokendance）的凭证——低优先级启用者不是 owner。
+    expect(writes.some(([, cfg]) => cfg.apiKey === 'sk-td')).toBe(true);
+  });
+
+  it('移除套餐时另一套餐仅 enrolled-but-disabled：共享槽位被清理而非残留（regression #2）', () => {
+    const actions = makeActions();
+    actions.getTokenPlanEnrollments = vi.fn(() => bothEnrolled.tokenPlanEnrollments);
+    // Seed 已连接但被禁用：usable 集合为空（移除前快照里 TD 仍 enrolled）。
+    actions.getTokenPlanPriorityState = vi.fn(() => ({
+      ...bothEnrolled,
+      tokenPlanDisabled: { 'volcengine-ark': true },
+    }));
+    removeTokenPlan(tokendance, actions);
+    const writes = imageWrites(actions);
+    // removeModality(image) 清理 seedream：key 清空 + 禁用 + 目录还原。
+    expect(writes.some(([, cfg]) => cfg.apiKey === '' && cfg.enabled === false)).toBe(true);
+    const restore = writes.filter(([, cfg]) => cfg.apiKey === 'sk-ark');
+    expect(restore).toHaveLength(0);
+  });
+
+  it('移除套餐时另一套餐 usable：跳过清理并交还（既有语义回归守卫）', () => {
+    const actions = makeActions();
+    actions.getTokenPlanEnrollments = vi.fn(() => bothEnrolled.tokenPlanEnrollments);
+    actions.getTokenPlanPriorityState = vi.fn(() => ({ ...bothEnrolled }));
+    removeTokenPlan(ark, actions);
+    const writes = imageWrites(actions);
+    expect(writes.some(([, cfg]) => cfg.apiKey === 'sk-td')).toBe(true);
+  });
+});

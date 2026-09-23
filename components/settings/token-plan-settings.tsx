@@ -282,9 +282,12 @@ export function TokenPlanSettings() {
       setWebSearchProviderConfig,
     };
     setTokenPlanAuthorization(preset, checked, writeActions, nextState);
-    // 共享槽位交还（review P0-03）：双向都要做——关闭时把槽位还给剩余生效
-    // 套餐；开启时若本套餐优先级更高，则接管共享槽位的凭证。
-    restoreSharedProviderCredentials(preset.id, writeActions, nextState);
+    // 共享槽位归属再解析（review P0-03）：关闭时排除本套餐（槽位交给剩余
+    // 生效套餐）；重新开启时必须**纳入**本套餐——它是此刻最高优先级的候选
+    // owner，排除自己会让刚启用的套餐抢不回槽位（regression #1）。
+    restoreSharedProviderCredentials(preset.id, writeActions, nextState, {
+      excludeConcerned: !checked,
+    });
 
     // 重新开启时补种：关闭期间 stage route 会被授权层清理掉（provider 的
     // enabled=false），仅把开关拨回去并不会让它们回来。清掉指纹让
