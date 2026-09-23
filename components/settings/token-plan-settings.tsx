@@ -1,11 +1,12 @@
 'use client';
 
-// 「Token Plan」分区：外壳对齐下游 live 的 model-services-panel 设计——
-// 左侧服务 tablist（logo 容器 + 显示名映射 + 状态行 + 键盘导航）、右侧
-// 头部一行制（状态 / 更新密钥 / 管理账号外链 / ⋯ 菜单解除连接）、密钥
-// 「保存即连接」。与下游不同的部分：连接是本地 store 的 preset 应用/移除
-// （无服务端连接、OAuth、额度 consent）；「套餐提供的能力」区块维持
-// 分段 tab + 模型清单不动。
+// The "Token Plan" section: a two-column panel with a service tablist on the
+// left (logo, display-name mapping, status row, keyboard navigation) and a
+// one-line header on the right (status / update key / manage-account link / ⋯
+// menu disconnect). Saving the key connects the plan by applying or removing a
+// local settings-store preset — there is no server-side connection, OAuth, or
+// quota consent. The "capabilities offered" block below stays a segmented tab
+// list of models.
 
 import { useState, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
@@ -78,14 +79,14 @@ const MODALITY_ICONS: Record<TokenPlanModality, LucideIcon> = {
   webSearch: Search,
 };
 
-/** 面板显示名映射（对齐下游）：volcengine-ark 面板显示为 "Seed"。 */
+/** Display-name mapping: the volcengine-ark preset is shown as "Seed". */
 function presetDisplayName(preset: TokenPlanPreset): string {
   if (preset.id === 'minimax') return 'MiniMax';
   if (preset.id === 'volcengine-ark') return 'Seed';
   return preset.name;
 }
 
-/** 余额管理外链（对齐下游 portalCreditsUrl）：{厂商站点}/credits，保留 query。 */
+/** Balance-management link: `{vendor site}/credits`, preserving the query. */
 function portalCreditsUrl(base: string): string {
   try {
     const url = new URL(base);
@@ -134,12 +135,12 @@ function modelPlanItems(preset: TokenPlanPreset): ModelPlanItem[] {
       });
     }
   }
-  // 联网搜索等无模型概念的模态：模型未披露（与下游口径一致）。
+  // Modalities with no model concept (e.g. web search) do not disclose a model.
   if (preset.modalities.webSearch) items.push({ capability: 'webSearch' });
   return items;
 }
 
-/** 服务 logo 容器（对齐下游）：TokenDance 黑底铺满，其余白底 size-6。 */
+/** Service logo container: TokenDance uses a filled black background, others white with size-6. */
 function PresetLogo({ preset }: { preset: TokenPlanPreset }) {
   if (!preset.icon) return <span className="size-8 shrink-0 rounded-lg bg-muted" />;
   return (
@@ -260,8 +261,9 @@ export function TokenPlanSettings() {
     toast.success(t('settings.tokenPlan.saved'));
   };
 
-  // 授权开关：记录标志位，并把它级联到该套餐各模态 provider 的 enabled 上，
-  // 让下游（课程模型配置候选、stage route 清理、媒体守卫）沿用既有授权层。
+  // Authorization toggle: record the flag and cascade it to each modality
+  // provider's `enabled`, so Course Model Config candidates, stage-route
+  // pruning, and media guards reuse the existing authorization layer.
   const toggleAuthorization = (preset: TokenPlanPreset, checked: boolean) => {
     const store = useSettingsStore.getState();
     store.setTokenPlanEnabled(preset.id, checked);
@@ -318,7 +320,7 @@ export function TokenPlanSettings() {
         setStageRoute,
         setTTSProvider,
         setWebSearchProvider,
-        // Enrollment + seed-fingerprint bookkeeping live inside applyTokenPlan
+        // Enrollment + seed-fingerprint bookkeeping happen inside applyTokenPlan
         // so they stay in lockstep with what actually got written.
         setTokenPlanEnrolled: (presetId, llmProviderId) =>
           useSettingsStore.getState().setTokenPlanEnrolled(presetId, llmProviderId),
@@ -372,7 +374,7 @@ export function TokenPlanSettings() {
 
       {/* 1:2 比例分割：服务商列表不需要太宽，右侧密钥/能力详情是主体 */}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-        {/* 左列：服务 tablist（对齐下游；小屏收拢为 3 列网格） */}
+        {/* Left column: service tablist (collapses to a 3-column grid on small screens) */}
         <div
           className="grid grid-cols-3 content-start gap-1 rounded-xl bg-muted/40 p-1 sm:grid-cols-1 sm:gap-1 sm:bg-transparent sm:p-0"
           role="tablist"
@@ -484,8 +486,9 @@ export function TokenPlanSettings() {
                       </div>
                     </div>
                     <div className="ml-auto flex shrink-0 items-center gap-2">
-                      {/* 余额管理在 TokenDance 门户站上（/credits）；仅已连接时
-                          露出，样式与「管理账号」一致（对齐下游）。 */}
+                      {/* Balance management lives on the TokenDance portal
+                          (/credits); shown only when connected, styled like
+                          "Manage account". */}
                       {selected.id === 'tokendance' && enabled && selected.websiteUrl && (
                         <a
                           href={portalCreditsUrl(selected.websiteUrl)}
@@ -597,8 +600,8 @@ export function TokenPlanSettings() {
                     </form>
                   )}
 
-                  {/* 查看模型方案（对齐下游 details 折叠框）：能力·环节 → 套餐
-                      默认模型对照表；无模型概念的模态显示「模型未披露」。 */}
+                  {/* View model plan: a capability · stage → plan default model
+                      table; modalities with no model concept show "not disclosed". */}
                   <details className="group border-t border-border/60 pt-4">
                     <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-sm text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
                       {t(`${tp}.modelPlan`)}

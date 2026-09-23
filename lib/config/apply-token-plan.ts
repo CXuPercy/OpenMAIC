@@ -124,8 +124,9 @@ export interface TokenPlanEnrollmentState {
  * credentials are still present. Presets without an LLM modality never count
  * as enrolled (all shipped presets anchor on LLM).
  *
- * 注意：这是「连接层」判定，不看授权开关——Token Plan 页面要能显示一个
- * 已连接但被关闭的套餐。下游消费请用 isTokenPlanUsable。
+ * Note: this is the "connection" predicate and ignores the authorization
+ * toggle — the Token Plan page must be able to show a connected-but-disabled
+ * plan. Consumers should use isTokenPlanUsable.
  */
 export function isTokenPlanActive(
   preset: TokenPlanPreset,
@@ -163,13 +164,15 @@ export function activeTokenPlansInPriorityOrder(
 }
 
 /**
- * 套餐授权开关的级联：把「启用此套餐」翻译成它各模态 provider 的 `enabled`
- * 标志。这样下游（课程模型配置候选、stage route 清理、媒体开关守卫、
- * x-model-routes 头）完全复用既有的授权层口径，无需各自理解套餐概念——
- * 与「模型服务」里 provider 开关的效果一致。
+ * Authorization-toggle cascade: translate "enable this plan" into the `enabled`
+ * flag of each of its modality providers. Course Model Config candidates,
+ * stage-route pruning, media guards, and the x-model-routes header then reuse
+ * the existing authorization layer without needing to understand the plan
+ * concept — matching the effect of a provider toggle in Model Services.
  *
- * 共享 provider（tokendance 与 volcengine-ark 都骑 seedream 等）由其他仍然
- * 生效的套餐占用时跳过：那份凭证此刻属于对方，不能被本套餐的开关带走。
+ * Shared providers (tokendance and volcengine-ark both ride seedream, etc.) are
+ * skipped while another still-usable plan owns them: that credential belongs to
+ * the other plan right now and must not be carried away by this toggle.
  */
 export function setTokenPlanAuthorization(
   preset: TokenPlanPreset,
