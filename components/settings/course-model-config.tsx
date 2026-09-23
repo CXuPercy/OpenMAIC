@@ -63,6 +63,7 @@ import {
 import type { WebSearchProviderId } from '@/lib/web-search/types';
 import { ModelPicker, type ModelPickerGroup } from './model-picker';
 import { useLLMPickerGroups } from './use-llm-picker-groups';
+import { STATION_STAGE_KEYS } from '@/lib/config/station-stage-keys';
 
 // ── 设计稿坐标系（固定蛇形布局，整体按容器缩放） ──────────────
 const DESIGN_W = 835;
@@ -190,7 +191,12 @@ interface StationDef {
   id: keyof typeof STATION_POS & string;
   labelKey: string;
   kind: 'llm' | 'media';
-  stage?: string;
+  /**
+   * 该站点控制的运行时 stage 键（契约见 lib/config/station-stage-keys.ts）。
+   * 多键站点（课堂互动）覆盖时整组一起写、跟随时整组一起清；展示与读取
+   * 用第一個键作主键。
+   */
+  stages?: readonly string[];
   subSlots?: Array<{ key: string; labelKey: string }>;
   vision?: boolean;
   tag?: 'loop' | 'parallel';
@@ -201,7 +207,7 @@ const STATIONS: StationDef[] = [
     id: 'pro-mode',
     labelKey: 'settings.courseModels.stations.proMode',
     kind: 'llm',
-    stage: 'maic-agent-driver',
+    stages: STATION_STAGE_KEYS['pro-mode'],
     subSlots: [{ key: 'conversation-title', labelKey: 'settings.courseModels.subStages.title' }],
   },
   {
@@ -213,26 +219,26 @@ const STATIONS: StationDef[] = [
     id: 'web-research',
     labelKey: 'settings.courseModels.stations.webResearch',
     kind: 'llm',
-    stage: 'web-search-query-rewrite',
+    stages: STATION_STAGE_KEYS['web-research'],
   },
   {
     id: 'outline',
     labelKey: 'settings.courseModels.stations.outline',
     kind: 'llm',
-    stage: 'scene-outlines-stream',
+    stages: STATION_STAGE_KEYS.outline,
     vision: true,
   },
   {
     id: 'agents',
     labelKey: 'settings.courseModels.stations.agents',
     kind: 'llm',
-    stage: 'agent-profiles',
+    stages: STATION_STAGE_KEYS.agents,
   },
   {
     id: 'scene-content',
     labelKey: 'settings.courseModels.stations.sceneContent',
     kind: 'llm',
-    stage: 'scene-content',
+    stages: STATION_STAGE_KEYS['scene-content'],
     vision: true,
     tag: 'loop',
     subSlots: [
@@ -246,7 +252,7 @@ const STATIONS: StationDef[] = [
     id: 'scene-actions',
     labelKey: 'settings.courseModels.stations.sceneActions',
     kind: 'llm',
-    stage: 'scene-actions',
+    stages: STATION_STAGE_KEYS['scene-actions'],
     tag: 'loop',
   },
   {
@@ -265,8 +271,9 @@ const STATIONS: StationDef[] = [
     id: 'interaction',
     labelKey: 'settings.courseModels.stations.interaction',
     kind: 'llm',
-    stage: 'chat-adapter',
-    // PBL 运行时/判分等子环节不再细分展示，统一跟随本环节的模型配置。
+    // 一个旋钮控制整组运行时 stage：对话/测验批分/PBL 运行时（含复合子键
+    // 的父级回溯）。不再细分展示，统一跟随本环节的模型配置。
+    stages: STATION_STAGE_KEYS.interaction,
   },
 ];
 
@@ -363,7 +370,7 @@ function Station({
           </span>
         ) : (
           <>
-            {def.stage &&
+            {def.stages &&
               (following ? (
                 <span className="flex items-center gap-1 text-[10px] leading-none">
                   <CornerDownRight className="size-3 shrink-0 text-primary" />
@@ -569,7 +576,8 @@ export function CourseModelConfigPanel({}) {
         return { following: true, mediaLines: lines, allOff: lines.length === 0 };
       }
       default: {
-        const stage = def.stage;
+        // 多键站点（课堂互动）整组一起写，读主键即可判断跟随/覆盖态。
+        const stage = def.stages?.[0];
         const route = stage ? llmStageRoutes[stage] : undefined;
         return { following: !route, mediaLines: [], allOff: false };
       }
@@ -713,7 +721,9 @@ export function CourseModelConfigPanel({}) {
                     def={def}
                     label={t(def.labelKey)}
                     following={state.following}
-                    overrideName={state.following ? undefined : stageOverrideName(def.stage ?? '')}
+                    overrideName={
+                      state.following ? undefined : stageOverrideName(def.stages?.[0] ?? '')
+                    }
                     resolvedName={mainModelName}
                     mediaLines={state.mediaLines}
                     allOff={state.allOff}
@@ -907,8 +917,21 @@ function Inspector(props: {
   const { t, def, llmPickerGroups, mainModelName, llmStageRoutes, setStageRoute } = props;
   const cm = 'settings.courseModels';
 
-  const stageRouteSelect = (stage: string, followLabel: string, followNote: string) => {
-    const route = llmStageRoutes[stage] ?? null;
+  // stage 选择器。站点级调用传整组键（多键站点覆盖时一起写、跟随时一起清，
+  // 见 lib/config/station-stage-keys.ts）；细分环节仍传单键。
+  const stageRouteSelect = (
+    stageKeys: string | readonly string[],
+    followLabel: string,
+    followNote: string,
+  ) => {
+    const keys = typeof stageKeys === 'string' ? [stageKeys] : stageKeys;
+    const primary = keys[0];
+    const route = primary ? (llmStageRoutes[primary] ?? null) : null;
+    const writeAll = (
+      routeValue: { providerId: ProviderId; modelId: string; thinking?: ThinkingConfig } | null,
+    ) => {
+      for (const key of keys) setStageRoute(key, routeValue);
+    };
     return (
       <div className="space-y-1">
         <ModelPicker
@@ -916,15 +939,13 @@ function Inspector(props: {
           value={route ? { providerId: route.providerId, modelId: route.modelId } : null}
           followLabel={followLabel}
           followNote={followNote}
-          onFollow={() => setStageRoute(stage, null)}
-          onSelect={(pid, mid) =>
-            setStageRoute(stage, { providerId: pid as ProviderId, modelId: mid })
-          }
+          onFollow={() => writeAll(null)}
+          onSelect={(pid, mid) => writeAll({ providerId: pid as ProviderId, modelId: mid })}
           thinkingConfig={route?.thinking}
           onThinkingChange={
             route
               ? (config) =>
-                  setStageRoute(stage, {
+                  writeAll({
                     providerId: route.providerId,
                     modelId: route.modelId,
                     thinking: config,
@@ -935,7 +956,7 @@ function Inspector(props: {
         />
         {route && (
           <button
-            onClick={() => setStageRoute(stage, null)}
+            onClick={() => writeAll(null)}
             className="text-[11px] text-primary transition-colors hover:underline"
           >
             {t(`${cm}.restoreFollow`)}
@@ -953,9 +974,9 @@ function Inspector(props: {
       <div className="flex items-start justify-between gap-2 border-b border-border/60 px-4 py-3">
         <div className="min-w-0">
           <p className="text-sm font-medium leading-tight">{t(def.labelKey)}</p>
-          {def.stage ? (
+          {def.stages ? (
             <p className="mt-1 truncate rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-              {def.stage}
+              {def.stages.join(' · ')}
             </p>
           ) : (
             def.kind === 'media' && (
@@ -979,11 +1000,11 @@ function Inspector(props: {
           {t(`${cm}.stations.desc.${def.id}`)}
         </p>
 
-        {def.stage && (
+        {def.stages && (
           <div className="space-y-1.5">
             <p className="text-xs font-medium">{t(`${cm}.modelSource`)}</p>
             {llmPickerGroups.length > 0 ? (
-              stageRouteSelect(def.stage, t(`${cm}.followMainline`), mainModelName)
+              stageRouteSelect(def.stages, t(`${cm}.followMainline`), mainModelName)
             ) : (
               <p className="text-[11px] text-muted-foreground">{t(`${cm}.noProviderHint`)}</p>
             )}
