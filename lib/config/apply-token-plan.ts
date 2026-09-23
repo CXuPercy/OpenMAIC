@@ -215,6 +215,74 @@ export function setTokenPlanAuthorization(
   }
 }
 
+/**
+ * 共享 provider 的当前归属者：目标 provider 在该模态下被多个套餐声明时，
+ * 返回列表中更靠前的生效套餐（排除 excludedPresetId）；无则 undefined。
+ */
+function sharedModalityOwner(
+  modality: TokenPlanModality,
+  providerId: string,
+  state: TokenPlanEnrollmentState | undefined,
+  excludedPresetId?: string,
+): TokenPlanPreset | undefined {
+  if (!state) return undefined;
+  return TOKEN_PLAN_PRESETS.find(
+    (p) =>
+      p.id !== excludedPresetId &&
+      isTokenPlanUsable(p, state) &&
+      p.modalities[modality]?.providerId === providerId,
+  );
+}
+
+/** apply 时的凭证让位判定：更高优先级的生效套餐已占用同模态同 provider。 */
+function sharedOwnerYields(
+  preset: TokenPlanPreset,
+  modality: TokenPlanModality,
+  state: TokenPlanEnrollmentState | undefined,
+): boolean {
+  const providerId = preset.modalities[modality]?.providerId;
+  if (!providerId || !state) return false;
+  const owner = sharedModalityOwner(modality, providerId, state, preset.id);
+  if (!owner) return false;
+  return TOKEN_PLAN_PRESETS.indexOf(owner) < TOKEN_PLAN_PRESETS.indexOf(preset);
+}
+
+/**
+ * 共享 provider 凭证归属的再解析（review P0-03）：某套餐被关闭/移除后，
+ * 它占用过的共享槽位必须交还给剩余生效套餐中优先级最高者——凭证、baseUrl
+ * 与目录一并恢复（owner 的网关 key 取自其 LLM provider 槽位，即连接时写入
+ * 的同一把 key）。没有剩余 owner 时不写（授权级联已把该 provider 关闭）。
+ * 连接顺序无关：owner 恒为列表中更靠前的生效套餐。
+ */
+export function restoreSharedProviderCredentials(
+  excludedPresetId: string,
+  actions: TokenPlanActions,
+  state: TokenPlanEnrollmentState,
+): void {
+  const excluded = TOKEN_PLAN_PRESETS.find((p) => p.id === excludedPresetId);
+  if (!excluded) return;
+
+  for (const modality of MODALITY_ORDER) {
+    const target = excluded.modalities[modality];
+    if (!target) continue;
+    // 仅共享槽位需要交还：独占槽位由 removeModality/授权级联处理。
+    const owner = sharedModalityOwner(modality, target.providerId, state, excludedPresetId);
+    if (!owner) continue;
+    const ownerTarget = owner.modalities[modality];
+    if (!ownerTarget) continue;
+    // owner 的网关 key 落在其 LLM provider 槽位（enrollment 不变量）。
+    const ownerKey = state.providersConfig[owner.modalities.llm?.providerId ?? '']?.apiKey;
+    if (!ownerKey) continue;
+
+    try {
+      applyModality(modality, ownerTarget, owner, ownerKey, actions);
+      seedPlanModels(owner, actions, { modalities: [modality], priorityState: state });
+    } catch {
+      // 与 apply/remove 同口径：单模态失败不阻断其余交还。
+    }
+  }
+}
+
 export interface ApplyResult {
   modality: TokenPlanModality;
   // 'pending' is a UI-only state the settings page sets while a live probe is in
@@ -238,10 +306,22 @@ export function applyTokenPlan(
   actions: TokenPlanActions,
 ): ApplyResult[] {
   const results: ApplyResult[] = [];
+  // 优先级仲裁快照（连接前读取——本套餐尚未 enrollment，天然排除自身）。
+  const priorityState = actions.getTokenPlanPriorityState?.();
 
   for (const modality of MODALITY_ORDER) {
     const target = preset.modalities[modality];
     if (!target) continue;
+
+    // 共享 provider 凭证归属（review P0-03）：同模态同 provider 已被更高
+    // 优先级的生效套餐占用时，本套餐不覆盖其凭证/目录——无论连接顺序如何，
+    // 共享槽位始终属于列表中更靠前的生效套餐。共享槽位仍记录为 lit（连接
+    // 成功），凭证与目录归 owner，选中态由 seed 的让位仲裁决定。
+    const ownerYields = sharedOwnerYields(preset, modality, priorityState);
+    if (ownerYields) {
+      results.push({ modality, status: 'lit', providerId: target.providerId });
+      continue;
+    }
 
     try {
       applyModality(modality, target, preset, apiKey, actions);
@@ -407,7 +487,13 @@ export function seedPlanModels(
   const selectionTaken = (modality: TokenPlanModality) =>
     rivals.some((p) => !!p.modalities[modality]);
 
-  if (m.image && allowed('image')) {
+  // 共享 provider 让位（review P0-03）：该模态的 provider 已被更高优先级
+  // 生效套餐占用时，连目录都不写——否则本套餐的 customModels 会反噬 owner
+  // 的目录（apply 与启动 reconcile 两条路都走这里）。
+  const providerYields = (modality: TokenPlanModality) =>
+    sharedOwnerYields(preset, modality, opts?.priorityState);
+
+  if (m.image && allowed('image') && !providerYields('image')) {
     const customModels = (m.image.defaultModels ?? []).map((id) => ({ id, name: id }));
     if (customModels.length) {
       actions.setImageProviderConfig(m.image.providerId as ImageProviderId, {
@@ -421,7 +507,7 @@ export function seedPlanModels(
     }
   }
 
-  if (m.video && allowed('video')) {
+  if (m.video && allowed('video') && !providerYields('video')) {
     const customModels = (m.video.defaultModels ?? []).map((id) => ({ id, name: id }));
     if (customModels.length) {
       actions.setVideoProviderConfig(m.video.providerId as VideoProviderId, {
@@ -435,7 +521,7 @@ export function seedPlanModels(
     }
   }
 
-  if (m.tts && allowed('tts')) {
+  if (m.tts && allowed('tts') && !providerYields('tts')) {
     const ttsModels = (m.tts.defaultModels ?? []).map((id) => ({ id, name: id }));
     actions.setTTSProviderConfig(m.tts.providerId as TTSProviderId, {
       ...(m.tts.defaultModelId ? { modelId: m.tts.defaultModelId } : {}),
@@ -574,6 +660,14 @@ export function removeTokenPlan(preset: TokenPlanPreset, actions: TokenPlanActio
   actions.setTokenPlanEnrolled?.(preset.id, null);
   actions.setTokenPlanEnabled?.(preset.id, true);
   actions.setTokenPlanSeedVersion?.(preset.id, null);
+
+  // 共享槽位交还（review P0-03）：被移除套餐占用过的共享 provider，凭证与
+  // 目录归还给剩余生效套餐中优先级最高者（跳过清理的那些槽位此前可能写着
+  // 本套餐的 key）。
+  const priorityState = actions.getTokenPlanPriorityState?.();
+  if (priorityState) {
+    restoreSharedProviderCredentials(preset.id, actions, priorityState);
+  }
 
   return results;
 }

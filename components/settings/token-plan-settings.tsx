@@ -58,6 +58,7 @@ import {
   isTokenPlanActive,
   isTokenPlanUsable,
   removeTokenPlan,
+  restoreSharedProviderCredentials,
   setTokenPlanAuthorization,
 } from '@/lib/config/apply-token-plan';
 
@@ -240,6 +241,15 @@ export function TokenPlanSettings() {
       setTokenPlanSeedVersion: (presetId, fingerprint) =>
         useSettingsStore.getState().setTokenPlanSeedVersion(presetId, fingerprint),
       getTokenPlanEnrollments: () => useSettingsStore.getState().tokenPlanEnrollments,
+      // 共享槽位交还需要完整状态（enrollments + providersConfig + 授权开关）。
+      getTokenPlanPriorityState: () => {
+        const s = useSettingsStore.getState();
+        return {
+          tokenPlanEnrollments: s.tokenPlanEnrollments,
+          providersConfig: s.providersConfig,
+          tokenPlanDisabled: s.tokenPlanDisabled,
+        };
+      },
     });
   };
 
@@ -259,22 +269,22 @@ export function TokenPlanSettings() {
     // 级联读的是「写入标志位之后」的状态：这样共享 provider 的避让判定
     // 看到的是本次切换后的真实生效集合。
     const next = useSettingsStore.getState();
-    setTokenPlanAuthorization(
-      preset,
-      checked,
-      {
-        setProviderConfig,
-        setImageProviderConfig,
-        setVideoProviderConfig,
-        setTTSProviderConfig,
-        setWebSearchProviderConfig,
-      },
-      {
-        tokenPlanEnrollments: next.tokenPlanEnrollments,
-        providersConfig: next.providersConfig,
-        tokenPlanDisabled: next.tokenPlanDisabled,
-      },
-    );
+    const nextState = {
+      tokenPlanEnrollments: next.tokenPlanEnrollments,
+      providersConfig: next.providersConfig,
+      tokenPlanDisabled: next.tokenPlanDisabled,
+    };
+    const writeActions = {
+      setProviderConfig,
+      setImageProviderConfig,
+      setVideoProviderConfig,
+      setTTSProviderConfig,
+      setWebSearchProviderConfig,
+    };
+    setTokenPlanAuthorization(preset, checked, writeActions, nextState);
+    // 共享槽位交还（review P0-03）：双向都要做——关闭时把槽位还给剩余生效
+    // 套餐；开启时若本套餐优先级更高，则接管共享槽位的凭证。
+    restoreSharedProviderCredentials(preset.id, writeActions, nextState);
 
     // 重新开启时补种：关闭期间 stage route 会被授权层清理掉（provider 的
     // enabled=false），仅把开关拨回去并不会让它们回来。清掉指纹让

@@ -5,6 +5,7 @@ import {
   isTokenPlanActive,
   isTokenPlanUsable,
   removeTokenPlan,
+  restoreSharedProviderCredentials,
   seedPlanModels,
   setTokenPlanAuthorization,
   type TokenPlanActions,
@@ -723,5 +724,89 @@ describe('多套餐优先级（按 TOKEN_PLAN_PRESETS 顺序）', () => {
     const actions = makeActions();
     seedPlanModels(ark, actions);
     expect(actions.setModel).toHaveBeenCalled();
+  });
+});
+
+// ── Review P0-03：共享 provider 凭证归属 = 列表中更靠前的生效套餐 ──
+describe('shared provider credential ownership (review P0-03)', () => {
+  const tokendance = TOKEN_PLAN_PRESETS.find((p) => p.id === 'tokendance')!;
+  const ark = TOKEN_PLAN_PRESETS.find((p) => p.id === 'volcengine-ark')!;
+  // tokendance 在 TOKEN_PLAN_PRESETS 中声明在 volcengine-ark 之前（更高优先级），
+  // 两者 image 模态共用 seedream。
+
+  const bothUsable: TokenPlanEnrollmentState = {
+    tokenPlanEnrollments: { tokendance: 'tokendance', 'volcengine-ark': 'doubao' },
+    providersConfig: {
+      tokendance: { apiKey: 'sk-td' },
+      doubao: { apiKey: 'sk-ark' },
+    },
+  };
+
+  const imageWrites = (actions: TokenPlanActions) =>
+    (
+      (actions.setImageProviderConfig as unknown as ReturnType<typeof vi.fn>).mock.calls as Array<
+        [string, Record<string, unknown>]
+      >
+    ).filter(([id]) => id === 'seedream');
+
+  it('后连低优先级套餐：不覆盖高优先级套餐已占用的共享槽位凭证', () => {
+    const actions = makeActions();
+    actions.getTokenPlanPriorityState = vi.fn(() => bothUsable);
+    applyTokenPlan(ark, 'sk-ark', actions);
+    const writes = imageWrites(actions);
+    expect(writes).toHaveLength(0);
+  });
+
+  it('后连高优先级套餐：正常接管共享槽位（连接顺序无关）', () => {
+    const actions = makeActions();
+    actions.getTokenPlanPriorityState = vi.fn(() => bothUsable);
+    applyTokenPlan(tokendance, 'sk-td', actions);
+    const writes = imageWrites(actions);
+    expect(writes.length).toBeGreaterThan(0);
+    expect(writes.some(([, cfg]) => cfg.apiKey === 'sk-td')).toBe(true);
+  });
+
+  it('禁用低优先级套餐后：共享槽位凭证交还给高优先级套餐（key 取自其 LLM 槽位）', () => {
+    const actions = makeActions();
+    restoreSharedProviderCredentials(
+      'volcengine-ark',
+      actions,
+      // ark 已被关闭：usable 集合只剩 tokendance。
+      { ...bothUsable, tokenPlanDisabled: { 'volcengine-ark': true } },
+    );
+    const writes = imageWrites(actions);
+    expect(writes.length).toBeGreaterThan(0);
+    expect(writes.some(([, cfg]) => cfg.apiKey === 'sk-td')).toBe(true);
+    expect(writes.some(([, cfg]) => cfg.baseUrl === tokendance.modalities.image!.baseUrl)).toBe(
+      true,
+    );
+  });
+
+  it('禁用高优先级套餐后：共享槽位交还给低优先级套餐', () => {
+    const actions = makeActions();
+    restoreSharedProviderCredentials('tokendance', actions, {
+      ...bothUsable,
+      tokenPlanDisabled: { tokendance: true },
+    });
+    const writes = imageWrites(actions);
+    expect(writes.some(([, cfg]) => cfg.apiKey === 'sk-ark')).toBe(true);
+  });
+
+  it('解除连接同样交还共享槽位（removeTokenPlan 末尾）', () => {
+    const actions = makeActions();
+    actions.getTokenPlanEnrollments = vi.fn(() => bothUsable.tokenPlanEnrollments);
+    actions.getTokenPlanPriorityState = vi.fn(() => bothUsable);
+    removeTokenPlan(ark, actions);
+    const writes = imageWrites(actions);
+    expect(writes.some(([, cfg]) => cfg.apiKey === 'sk-td')).toBe(true);
+  });
+
+  it('无剩余 owner 时不写共享槽位（交由授权级联关闭）', () => {
+    const actions = makeActions();
+    restoreSharedProviderCredentials('tokendance', actions, {
+      tokenPlanEnrollments: { tokendance: 'tokendance' },
+      providersConfig: { tokendance: { apiKey: 'sk-td' } },
+    });
+    expect(imageWrites(actions)).toHaveLength(0);
   });
 });
