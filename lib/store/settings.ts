@@ -47,6 +47,7 @@ import {
   validateProvider,
   resolveSelectedModel,
   isLLMProviderConfigured,
+  buildUsableFallbackOrder,
 } from '@/lib/store/settings-validation';
 import { createKVPersistStorage, purgeLegacyPersistKey } from '@/lib/store/kv-persist';
 import { isTTSProviderEnabled } from '@/lib/audio/provider-enablement';
@@ -1953,28 +1954,22 @@ export const useSettingsStore = create<SettingsState>()(
               }
 
               // === Validate current selections against updated configs ===
-              // Build fallback: server-configured first, then client-key-only
-              const buildFallback = <T extends string>(
-                config: Record<
-                  string,
-                  { isServerConfigured?: boolean; apiKey?: string; serverDisabled?: boolean }
-                >,
-              ): T[] => [
-                // Server-disabled providers are never fallback targets.
-                ...Object.entries(config)
-                  .filter(([, c]) => c.isServerConfigured && !c.serverDisabled)
-                  .map(([id]) => id as T),
-                ...Object.entries(config)
-                  .filter(([, c]) => !c.isServerConfigured && !c.serverDisabled && !!c.apiKey)
-                  .map(([id]) => id as T),
-              ];
-
-              const llmFallback = buildFallback<ProviderId>(newProvidersConfig);
-              const ttsFallback = buildFallback<TTSProviderId>(newTTSConfig);
-              const asrFallback = buildFallback<ASRProviderId>(newASRConfig);
-              const pdfFallback = buildFallback<PDFProviderId>(newPDFConfig);
-              const imageFallback = buildFallback<ImageProviderId>(newImageConfig);
-              const videoFallback = buildFallback<VideoProviderId>(newVideoConfig);
+              // Fallback order: server-configured first, then client-key-only.
+              // Authorization-disabled entries are excluded so the auto-recover
+              // branch below cannot resurrect a disabled plan's provider after
+              // a refresh (review P0-02).
+              const llmFallback = buildUsableFallbackOrder<ProviderId>(newProvidersConfig);
+              const ttsFallback = buildUsableFallbackOrder<TTSProviderId>(newTTSConfig);
+              const asrFallback = buildUsableFallbackOrder<ASRProviderId>(newASRConfig);
+              const pdfFallback = buildUsableFallbackOrder<PDFProviderId>(newPDFConfig);
+              // image/video 的 enabled:false 是「尚未采纳」态，服务端条目
+              // 允许被采纳后翻开（auto-enable 流程），不按授权排除。
+              const imageFallback = buildUsableFallbackOrder<ImageProviderId>(newImageConfig, {
+                ignoreEnabledForServerConfigured: true,
+              });
+              const videoFallback = buildUsableFallbackOrder<VideoProviderId>(newVideoConfig, {
+                ignoreEnabledForServerConfigured: true,
+              });
               const webSearchFallback = buildWebSearchFallbackOrder(newWebSearchConfig);
 
               let validLLMProvider = validateProvider(

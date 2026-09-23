@@ -100,6 +100,8 @@ export interface LLMProviderCfgLike {
   models: Array<{ id: string }>;
   baseUrl?: string;
   defaultBaseUrl?: string;
+  /** 用户级授权开关；显式关闭的 provider 不可用（与 isProviderUsable 同语义）。 */
+  enabled?: boolean;
 }
 
 /**
@@ -109,6 +111,8 @@ export interface LLMProviderCfgLike {
  * gate/toolbar can never claim a provider is usable when the server-sync
  * reconcile would not actually select it:
  *
+ * - authorization toggle off ⇒ never usable, key or not (review P0-02: a
+ *   disabled plan's provider must not slip through the homepage gate);
  * - server-configured ⇒ usable;
  * - keyless provider (ollama/lemonade) ⇒ usable ONLY once the user sets an
  *   explicit baseUrl — the registry `defaultBaseUrl` alone is not user intent;
@@ -117,6 +121,7 @@ export interface LLMProviderCfgLike {
  * Always also requires ≥1 model.
  */
 export function isLLMProviderConfigured(config: LLMProviderCfgLike): boolean {
+  if (config.enabled === false) return false;
   if (!config.models || config.models.length < 1) return false;
   if (config.isServerConfigured) return true;
   if (config.requiresApiKey === false) return !!config.baseUrl;
@@ -135,4 +140,39 @@ export function hasUsableLLMProvider(
 ): boolean {
   if (!providersConfig) return false;
   return Object.values(providersConfig).some(isLLMProviderConfigured);
+}
+
+/**
+ * Fallback adoption order for the server-sync reconcile: server-configured
+ * providers first, then client-key ones. Extracted from fetchServerProviders
+ * so the "never adopt a disabled provider" rule (review P0-02) is testable —
+ * authorization-disabled entries are excluded, otherwise the auto-recover
+ * branch (`fallback[0]`) would resurrect a disabled plan's provider on
+ * refresh even though validateProvider just rejected it.
+ *
+ * `ignoreEnabledForServerConfigured`: image/video 的 `enabled:false` 表示
+ * 「尚未采纳」而非授权关闭——服务端条目要被自动采纳并翻开开关（#665 的
+ * auto-enable 流程），因此这两个模态对 server-configured 条目不按 enabled
+ * 排除；client-key 条目仍尊重授权开关。
+ */
+export function buildUsableFallbackOrder<T extends string>(
+  config: Record<
+    string,
+    { isServerConfigured?: boolean; apiKey?: string; serverDisabled?: boolean; enabled?: boolean }
+  >,
+  opts?: { ignoreEnabledForServerConfigured?: boolean },
+): T[] {
+  const clientUsable = (c: { serverDisabled?: boolean; enabled?: boolean }) =>
+    !c.serverDisabled && c.enabled !== false;
+  const serverUsable = (c: { serverDisabled?: boolean; enabled?: boolean }) =>
+    !c.serverDisabled && (opts?.ignoreEnabledForServerConfigured || c.enabled !== false);
+  return [
+    // Server-disabled providers are never fallback targets.
+    ...Object.entries(config)
+      .filter(([, c]) => c.isServerConfigured && serverUsable(c))
+      .map(([id]) => id as T),
+    ...Object.entries(config)
+      .filter(([, c]) => !c.isServerConfigured && clientUsable(c) && !!c.apiKey)
+      .map(([id]) => id as T),
+  ];
 }
