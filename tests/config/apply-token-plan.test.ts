@@ -907,7 +907,8 @@ describe('kimi coding plan preset', () => {
       'kimi',
       expect.objectContaining({
         apiKey: 'sk-kimi',
-        baseUrl: 'https://api.moonshot.cn/v1',
+        // Coding Plan 专属端点（review P0）：不是 Moonshot 开放平台地址。
+        baseUrl: 'https://api.kimi.com/coding/v1',
         enabled: true,
       }),
     );
